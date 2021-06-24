@@ -97,6 +97,8 @@ type Disk struct {
 	DriveType              DriveType         `json:"drive_type"`
 	IsRemovable            bool              `json:"removable"`
 	StorageController      StorageController `json:"storage_controller"`
+	UUID                   string            `json:"uuid"`    // This would be volume UUID on macOS, UUID on linux, empty on Windows
+	PtUUID                 string            `json:"pt_uuid"` // This would be volume PtUUID on macOS, PartUUID on linux, empty on Windows
 	BusPath                string            `json:"bus_path"`
 	// TODO(jaypipes): Convert this to a TopologyNode struct pointer and then
 	// add to serialized output as "numa_node,omitempty"

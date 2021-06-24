@@ -24,6 +24,14 @@ const (
 	sectorSize = 512
 )
 
+type UUIDType string
+
+const (
+	PartUUID UUIDType = "PARTUUID"
+	PTUUID   UUIDType = "PTUUID"
+	UUID     UUIDType = "UUID"
+)
+
 func (i *Info) load() error {
 	paths := linuxpath.New(i.ctx)
 	i.Disks = disks(i.ctx, paths)
@@ -195,7 +203,7 @@ func diskPartitions(ctx *context.Context, paths *linuxpath.Paths, disk string) [
 		}
 		size := partitionSizeBytes(paths, disk, fname)
 		mp, pt, ro := partitionInfo(paths, fname)
-		du := diskPartUUID(ctx, fname)
+		du := diskUUID(ctx, fname, PartUUID)
 		p := &Partition{
 			Name:       fname,
 			SizeBytes:  size,
@@ -209,19 +217,19 @@ func diskPartitions(ctx *context.Context, paths *linuxpath.Paths, disk string) [
 	return out
 }
 
-func diskPartUUID(ctx *context.Context, part string) string {
+func diskUUID(ctx *context.Context, part string, uuidType UUIDType) string {
 	if !strings.HasPrefix(part, "/dev") {
 		part = "/dev/" + part
 	}
 	args := []string{
 		"blkid",
 		"-s",
-		"PARTUUID",
+		string(uuidType),
 		part,
 	}
 	out, err := exec.Command(args[0], args[1:]...).Output()
 	if err != nil {
-		ctx.Warn("failed to read disk partuuid of %s : %s\n", part, err.Error())
+		ctx.Warn("failed to read disk uuid of %s : %s\n", part, err.Error())
 		return ""
 	}
 
@@ -229,9 +237,9 @@ func diskPartUUID(ctx *context.Context, part string) string {
 		return ""
 	}
 
-	parts := strings.Split(string(out), "PARTUUID=")
+	parts := strings.Split(string(out), "UUID=")
 	if len(parts) != 2 {
-		ctx.Warn("failed to parse the partuuid of %s\n", part)
+		ctx.Warn("failed to parse the uuid of %s\n", part)
 		return ""
 	}
 
@@ -282,6 +290,8 @@ func disks(ctx *context.Context, paths *linuxpath.Paths) []*Disk {
 		serialNo := diskSerialNumber(paths, dname)
 		wwn := diskWWN(paths, dname)
 		removable := diskIsRemovable(paths, dname)
+		uuid := diskUUID(ctx, dname, UUID)
+		ptuuid := diskUUID(ctx, dname, PTUUID)
 
 		d := &Disk{
 			Name:                   dname,
@@ -290,6 +300,8 @@ func disks(ctx *context.Context, paths *linuxpath.Paths) []*Disk {
 			DriveType:              driveType,
 			IsRemovable:            removable,
 			StorageController:      storageController,
+			UUID:                   uuid,
+			PtUUID:                 ptuuid,
 			BusPath:                busPath,
 			NUMANodeID:             node,
 			Vendor:                 vendor,
@@ -452,19 +464,4 @@ func parseMountEntry(line string) *mountEntry {
 	opts := strings.Split(fields[3], ",")
 	res.Options = opts
 	return res
-}
-
-func partitionMountPoint(paths *linuxpath.Paths, part string) string {
-	mp, _, _ := partitionInfo(paths, part)
-	return mp
-}
-
-func partitionType(paths *linuxpath.Paths, part string) string {
-	_, pt, _ := partitionInfo(paths, part)
-	return pt
-}
-
-func partitionIsReadOnly(paths *linuxpath.Paths, part string) bool {
-	_, _, ro := partitionInfo(paths, part)
-	return ro
 }
