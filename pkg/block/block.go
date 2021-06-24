@@ -100,6 +100,7 @@ type Disk struct {
 	UUID                   string            `json:"uuid"`    // This would be volume UUID on macOS, UUID on linux, empty on Windows
 	PtUUID                 string            `json:"pt_uuid"` // This would be volume PtUUID on macOS, PartUUID on linux, empty on Windows
 	BusPath                string            `json:"bus_path"`
+	FileSystemInfo         FileSystemInfo    `json:"_"`
 	// TODO(jaypipes): Convert this to a TopologyNode struct pointer and then
 	// add to serialized output as "numa_node,omitempty"
 	NUMANodeID   int          `json:"-"`
@@ -114,14 +115,18 @@ type Disk struct {
 
 // Partition describes a logical division of a Disk.
 type Partition struct {
-	Disk       *Disk  `json:"-"`
-	Name       string `json:"name"`
-	Label      string `json:"label"`
-	MountPoint string `json:"mount_point"`
-	SizeBytes  uint64 `json:"size_bytes"`
-	Type       string `json:"type"`
+	Disk           *Disk          `json:"-"`
+	Name           string         `json:"name"`
+	Label          string         `json:"label"`
+	SizeBytes      uint64         `json:"size_bytes"`
+	UUID           string         `json:"uuid"` // This would be volume UUID on macOS, PartUUID on linux, empty on Windows
+	FileSystemInfo FileSystemInfo `json:"_"`
+}
+
+type FileSystemInfo struct {
+	FsType     string `json:"fs_type"`
 	IsReadOnly bool   `json:"read_only"`
-	UUID       string `json:"uuid"` // This would be volume UUID on macOS, PartUUID on linux, empty on Windows
+	MountPoint string `json:"mount_point"`
 }
 
 // Info describes all disk drives and partitions in the host system.
@@ -210,12 +215,12 @@ func (d *Disk) String() string {
 
 func (p *Partition) String() string {
 	typeStr := ""
-	if p.Type != "" {
-		typeStr = fmt.Sprintf("[%s]", p.Type)
+	if p.FileSystemInfo.FsType != "" {
+		typeStr = fmt.Sprintf("[%s]", p.FileSystemInfo.FsType)
 	}
 	mountStr := ""
-	if p.MountPoint != "" {
-		mountStr = fmt.Sprintf(" mounted@%s", p.MountPoint)
+	if p.FileSystemInfo.FsType != "" {
+		mountStr = fmt.Sprintf(" mounted@%s", p.FileSystemInfo.MountPoint)
 	}
 	sizeStr := util.UNKNOWN
 	if p.SizeBytes > 0 {

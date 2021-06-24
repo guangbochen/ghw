@@ -205,12 +205,14 @@ func diskPartitions(ctx *context.Context, paths *linuxpath.Paths, disk string) [
 		mp, pt, ro := partitionInfo(paths, fname)
 		du := diskUUID(ctx, fname, PartUUID)
 		p := &Partition{
-			Name:       fname,
-			SizeBytes:  size,
-			MountPoint: mp,
-			Type:       pt,
-			IsReadOnly: ro,
-			UUID:       du,
+			Name:      fname,
+			SizeBytes: size,
+			FileSystemInfo: FileSystemInfo{
+				MountPoint: mp,
+				FsType:     pt,
+				IsReadOnly: ro,
+			},
+			UUID: du,
 		}
 		out = append(out, p)
 	}
@@ -292,6 +294,12 @@ func disks(ctx *context.Context, paths *linuxpath.Paths) []*Disk {
 		removable := diskIsRemovable(paths, dname)
 		uuid := diskUUID(ctx, dname, UUID)
 		ptuuid := diskUUID(ctx, dname, PTUUID)
+		mp, pt, ro := partitionInfo(paths, dname)
+		fs := FileSystemInfo{
+			MountPoint: mp,
+			FsType:     pt,
+			IsReadOnly: ro,
+		}
 
 		d := &Disk{
 			Name:                   dname,
@@ -308,6 +316,7 @@ func disks(ctx *context.Context, paths *linuxpath.Paths) []*Disk {
 			Model:                  model,
 			SerialNumber:           serialNo,
 			WWN:                    wwn,
+			FileSystemInfo:         fs,
 		}
 
 		parts := diskPartitions(ctx, paths, dname)
