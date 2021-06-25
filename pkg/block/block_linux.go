@@ -261,6 +261,59 @@ func diskIsRemovable(paths *linuxpath.Paths, disk string) bool {
 	return false
 }
 
+func getDisk(ctx *context.Context, paths *linuxpath.Paths, dname string) *Disk {
+	driveType, storageController := diskTypes(dname)
+	// TODO(jaypipes): Move this into diskTypes() once abstracting
+	// diskIsRotational for ease of unit testing
+	if !diskIsRotational(ctx, paths, dname) {
+		driveType = DRIVE_TYPE_SSD
+	}
+	size := diskSizeBytes(paths, dname)
+	pbs := diskPhysicalBlockSizeBytes(paths, dname)
+	busPath := diskBusPath(paths, dname)
+	node := diskNUMANodeID(paths, dname)
+	vendor := diskVendor(paths, dname)
+	model := diskModel(paths, dname)
+	serialNo := diskSerialNumber(paths, dname)
+	wwn := diskWWN(paths, dname)
+	removable := diskIsRemovable(paths, dname)
+	uuid := diskUUID(ctx, dname, UUID)
+	ptuuid := diskUUID(ctx, dname, PTUUID)
+	mp, pt, ro := partitionInfo(paths, dname)
+	fs := FileSystemInfo{
+		MountPoint: mp,
+		FsType:     pt,
+		IsReadOnly: ro,
+	}
+
+	d := &Disk{
+		Name:                   dname,
+		SizeBytes:              size,
+		PhysicalBlockSizeBytes: pbs,
+		DriveType:              driveType,
+		IsRemovable:            removable,
+		StorageController:      storageController,
+		UUID:                   uuid,
+		PtUUID:                 ptuuid,
+		BusPath:                busPath,
+		NUMANodeID:             node,
+		Vendor:                 vendor,
+		Model:                  model,
+		SerialNumber:           serialNo,
+		WWN:                    wwn,
+		FileSystemInfo:         fs,
+	}
+
+	parts := diskPartitions(ctx, paths, dname)
+	// Map this Disk object into the Partition...
+	for _, part := range parts {
+		part.Disk = d
+	}
+	d.Partitions = parts
+
+	return d
+}
+
 func disks(ctx *context.Context, paths *linuxpath.Paths) []*Disk {
 	// In Linux, we could use the fdisk, lshw or blockdev commands to list disk
 	// information, however all of these utilities require root privileges to
@@ -277,55 +330,7 @@ func disks(ctx *context.Context, paths *linuxpath.Paths) []*Disk {
 			continue
 		}
 
-		driveType, storageController := diskTypes(dname)
-		// TODO(jaypipes): Move this into diskTypes() once abstracting
-		// diskIsRotational for ease of unit testing
-		if !diskIsRotational(ctx, paths, dname) {
-			driveType = DRIVE_TYPE_SSD
-		}
-		size := diskSizeBytes(paths, dname)
-		pbs := diskPhysicalBlockSizeBytes(paths, dname)
-		busPath := diskBusPath(paths, dname)
-		node := diskNUMANodeID(paths, dname)
-		vendor := diskVendor(paths, dname)
-		model := diskModel(paths, dname)
-		serialNo := diskSerialNumber(paths, dname)
-		wwn := diskWWN(paths, dname)
-		removable := diskIsRemovable(paths, dname)
-		uuid := diskUUID(ctx, dname, UUID)
-		ptuuid := diskUUID(ctx, dname, PTUUID)
-		mp, pt, ro := partitionInfo(paths, dname)
-		fs := FileSystemInfo{
-			MountPoint: mp,
-			FsType:     pt,
-			IsReadOnly: ro,
-		}
-
-		d := &Disk{
-			Name:                   dname,
-			SizeBytes:              size,
-			PhysicalBlockSizeBytes: pbs,
-			DriveType:              driveType,
-			IsRemovable:            removable,
-			StorageController:      storageController,
-			UUID:                   uuid,
-			PtUUID:                 ptuuid,
-			BusPath:                busPath,
-			NUMANodeID:             node,
-			Vendor:                 vendor,
-			Model:                  model,
-			SerialNumber:           serialNo,
-			WWN:                    wwn,
-			FileSystemInfo:         fs,
-		}
-
-		parts := diskPartitions(ctx, paths, dname)
-		// Map this Disk object into the Partition...
-		for _, part := range parts {
-			part.Disk = d
-		}
-		d.Partitions = parts
-
+		d := getDisk(ctx, paths, dname)
 		disks = append(disks, d)
 	}
 

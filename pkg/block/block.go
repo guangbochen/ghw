@@ -8,6 +8,7 @@ package block
 
 import (
 	"fmt"
+	"github.com/jaypipes/ghw/pkg/linuxpath"
 	"math"
 	"strings"
 
@@ -211,6 +212,11 @@ func (d *Disk) String() string {
 		wwn,
 		removable,
 	)
+}
+func (i *Info) GetDiskByName(name string) *Disk {
+	paths := linuxpath.New(i.ctx)
+	disk := getDisk(i.ctx, paths, name)
+	return disk
 }
 
 func (p *Partition) String() string {
